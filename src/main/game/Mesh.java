@@ -14,13 +14,13 @@ import java.nio.FloatBuffer;
 public class Mesh {
 
     private int VBO, VAO, EBO;
-    private Vector3f[] vertices;
+    private Vertex[] vertices;
     private int[] indices;
     private Matrix4f transform = new Matrix4f();
     private Vector2f[] translations;
     private Vector3f scale, position;
 
-    Mesh(Vector3f[] vertices, int[] indices){
+    Mesh(Vertex[] vertices, int[] indices){
 
         this.vertices = vertices;
         this.indices = indices;
@@ -40,12 +40,24 @@ public class Mesh {
 
         GL30.glBindVertexArray(VAO);
 
-        FloatBuffer vertexBuffer = BufferUtils.createFloatBuffer(vertices.length * 3); // Cada vetor tem 3 componentes (x, y, z)
-        for (Vector3f vertex : vertices) {
-            vertexBuffer.put(vertex.x);
-            vertexBuffer.put(vertex.y);
-            vertexBuffer.put(vertex.z);
+        FloatBuffer vertexBuffer = BufferUtils.createFloatBuffer(vertices.length * 8); // 8 componentes (x, y, z), (r, g, b), (u, v)
+
+        // Extraindo posição, cor e coordenadas de textura
+
+        for (Vertex vertex : vertices) {
+
+            vertexBuffer.put(vertex.position.x);
+            vertexBuffer.put(vertex.position.y);
+            vertexBuffer.put(vertex.position.z);
+
+            vertexBuffer.put(vertex.color.x);
+            vertexBuffer.put(vertex.color.y);
+            vertexBuffer.put(vertex.color.z);
+
+            vertexBuffer.put(vertex.textureCoord.x);
+            vertexBuffer.put(vertex.textureCoord.y);
         }
+
 
         vertexBuffer.flip();
 
@@ -55,8 +67,7 @@ public class Mesh {
         GL30.glBindBuffer(GL30.GL_ELEMENT_ARRAY_BUFFER, EBO);
         GL30.glBufferData(GL30.GL_ELEMENT_ARRAY_BUFFER, indices, GL30.GL_STATIC_DRAW);
 
-        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, 3 * Float.BYTES, 0);
-        GL20.glEnableVertexAttribArray(0);
+        configureAttrib();
     }
 
     void render(int shaderProgram){
@@ -105,8 +116,6 @@ public class Mesh {
 
         transform.identity();
 
-        this.position.x += 0.02f;
-
         scale(this.scale);
         move(this.position);
 
@@ -115,11 +124,21 @@ public class Mesh {
     private void setupTranslationForInstanced(int instancesCount){
 
         this.translations = new Vector2f[instancesCount];
-        float xGap = 1.5f; // considerar largura da figura ao configurar gap, para evitar sobreposições.
+        float xGap = 2.f * scale.x; // considerar largura da figura ao configurar gap, para evitar sobreposições.
         for (int i = 0; i < translations.length; i++) {
             float xOffset = i * xGap;
             translations[i] = new Vector2f(xOffset, 0.0f);
         }
+    }
+
+    void configureAttrib(){
+        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, 8 * Float.BYTES, 0);
+        GL20.glVertexAttribPointer(1, 3, GL11.GL_FLOAT, false, 8 * Float.BYTES, 3 * Float.BYTES);
+        GL20.glVertexAttribPointer(2, 2, GL11.GL_FLOAT, false, 8 * Float.BYTES, 6 * Float.BYTES); // Texture coordinates
+
+        GL20.glEnableVertexAttribArray(0);
+        GL20.glEnableVertexAttribArray(1);
+        GL20.glEnableVertexAttribArray(2);
     }
 
     public int getVBO() {
@@ -155,5 +174,9 @@ public class Mesh {
 
     public void setPosition(Vector3f position) {
         this.position = position;
+    }
+
+    public Vertex[] getVertices() {
+        return vertices;
     }
 }

@@ -1,13 +1,11 @@
 package main.game;
 
-import org.joml.Matrix4f;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
-import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.*;
 
 import java.io.*;
-import java.nio.FloatBuffer;
+import java.nio.file.Paths;
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
@@ -17,25 +15,56 @@ class Main{
 
     public static void main(String[] args) {
 
-        float offsetX = 0.5f;
-        float offsetY = 0.0f;
+        Vertex[] triangleVertices = {
 
-        Vector3f[] triangleVertices = {
+                // Bottom left
+                new Vertex(
+                    new Vector3f(-0.5f, -0.5f, 0f),                         // Position
+                    new Vector3f(255.f / 255.f, 0.f / 255.f, 0.f / 255.f),  // Color
+                    new Vector2f(0.0f, 0.0f)                                   // TextureCoord
+                ),
 
-                new Vector3f(-0.5f, -0.5f, 0f),
-                new Vector3f( 0.5f, -0.5f, 0f),
-                new Vector3f( 0.0f,  0.5f, 0f),
+                // Bottom right
+                new Vertex(
+                    new Vector3f(0.5f, -0.5f, 0f),
+                    new Vector3f(0.f / 255.f, 255.f / 255.f, 0.f / 255.f),
+                    new Vector2f(1.0f, 0.0f)
+                ),
+
+                // top
+                new Vertex(
+                    new Vector3f(0.0f, 0.5f, 0f),
+                    new Vector3f(0.f / 255.f, 0.f / 255.f, 255.f / 255.f),
+                    new Vector2f(0.5f, 1.0f)
+                ),
         };
 
         int[] triangleIndices = {
                 0,1,2,
         };
 
-        Vector3f[] squareVertices = {
-                new Vector3f(-0.5f,  0.5f, 0.0f), // Top Left
-                new Vector3f(-0.5f, -0.5f, 0.0f), // Bottom Left
-                new Vector3f( 0.5f, -0.5f, 0.0f), // Bottom Right
-                new Vector3f( 0.5f,  0.5f, 0.0f)  // Top Right
+        Vertex[] squareVertices = {
+
+                new Vertex(
+                        new Vector3f(-0.5f,  0.5f, 0.0f),
+                        new Vector3f(255.f / 255.f, 0.f   / 255.f, 0.f   / 255.f),
+                        new Vector2f(0.0f, 0.0f)
+                ),  // Top Left
+                new Vertex(
+                        new Vector3f(-0.5f, -0.5f, 0.0f),
+                        new Vector3f(0.f   / 255.f, 255.f / 255.f, 0.f   / 255.f),
+                        new Vector2f(0.0f, 1.0f)
+                ),  // Bottom Left
+                new Vertex(
+                        new Vector3f( 0.5f, -0.5f, 0.0f),
+                        new Vector3f(0.f   / 255.f, 0.f   / 255.f, 255.f / 255.f),
+                        new Vector2f(1.0f, 1.0f)
+                ),  // Bottom Right
+                new Vertex(
+                        new Vector3f( 0.5f,  0.5f, 0.0f),
+                        new Vector3f(0.f   / 255.f, 255.f / 255.f, 255.f / 255.f),
+                        new Vector2f(1.0f, 0.0f)
+                ),  // Top Right
         };
 
         int[] squareIndices = {
@@ -68,10 +97,24 @@ class Main{
         // Shader
         int shaderProgram = createShaderProgram();
 
+        // Texture.
+        int textureGrass = TextureLoader.loadTexture("src/main/resources/assets/grassblock.jpg");
+        int textureWooden = TextureLoader.loadTexture("src/main/resources/assets/wooden2.jpg");
+
         Mesh triangleMesh = new Mesh(triangleVertices, triangleIndices);
         Mesh quadMesh = new Mesh(squareVertices, squareIndices);
-        quadMesh.setPosition(new Vector3f(-3.25f, 2.75f, 0.f));
-        quadMesh.setScale(new Vector3f(.25f));
+
+        quadMesh.setScale(new Vector3f(0.5f));
+        quadMesh.setPosition(new Vector3f(-1.5f));
+
+        for (Vertex vertex : quadMesh.getVertices()) {
+
+            System.out.println("Position: (" + vertex.position.x + " | " + vertex.position.y + " | "  + vertex.position.z + ")");
+            System.out.println("Color: ("    + vertex.color.x + " | " + vertex.color.y + " | "  + vertex.color.z + ")");
+            System.out.println("Texture: ("  + vertex.textureCoord.x + " | " + vertex.textureCoord.y + ")");
+
+            System.out.println("------------");
+        }
 
         while (!glfwWindowShouldClose(windowID)) {
 
@@ -81,10 +124,12 @@ class Main{
 
             GL20.glUseProgram(shaderProgram);
 
+            GL30.glBindTexture(GL11.GL_TEXTURE_2D, textureWooden);
             triangleMesh.render(shaderProgram);
             triangleMesh.update();
 
-            quadMesh.renderInstanced(shaderProgram, 3);
+            GL30.glBindTexture(GL11.GL_TEXTURE_2D, textureGrass);
+            quadMesh.renderInstanced(shaderProgram, 4);
             quadMesh.update();
 
             // ending loop.
