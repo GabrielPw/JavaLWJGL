@@ -1,4 +1,4 @@
-package main.game;
+package main.game.graphics;
 
 
 import org.lwjgl.BufferUtils;
@@ -44,7 +44,7 @@ public class TextureLoader {
         GL30.glGenerateMipmap(GL30.GL_TEXTURE_2D);
 
         // Set texture parameters
-        GL30.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR_MIPMAP_LINEAR);
+        GL30.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
         GL30.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
 
         // Free the loaded image data

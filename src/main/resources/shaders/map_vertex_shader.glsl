@@ -7,16 +7,18 @@ out vec3 fragPos;
 out vec3 vertexColor;
 out vec2 vertexTextureCoord;
 
-uniform vec2 offsets[4];
-uniform mat4 transform;
+uniform float time;
+uniform vec2 tilePositionOffset[4];
+uniform mat4 model;
 
 void main()
 {
-    vertexColor        = aVertexColor;
+    fragPos = aPos;
+    vertexColor = aVertexColor;
     vertexTextureCoord = aVertexTextureCoord;
 
-    vec2 offset = offsets[gl_InstanceID];
+    vec3 tileOffset = vec3(tilePositionOffset[gl_InstanceID], 0);
 
-    fragPos = (transform * vec4(aPos + vec3(offset, 0.0), 1.0)).xyz;
-    gl_Position = transform * vec4(aPos + vec3(offset, 0.0), 1.0);
+    tileOffset.x *= cos(time);
+    gl_Position = model * vec4(aPos + tileOffset, 1.0);
 };

@@ -1,5 +1,6 @@
 package main.game;
 
+import main.game.graphics.Vertex;
 import org.joml.Matrix4f;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
@@ -16,18 +17,23 @@ public class Mesh {
     private int VBO, VAO, EBO;
     private Vertex[] vertices;
     private int[] indices;
-    private Matrix4f transform = new Matrix4f();
+    protected Matrix4f transform = new Matrix4f();
     private Vector2f[] translations;
-    private Vector3f scale, position;
+    protected Vector3f scale, position;
 
-    Mesh(Vertex[] vertices, int[] indices){
+    Mesh(Vertex[] vertices, int[] indices, int vao, int vbo, int ebo){
+
+        this.VAO = vao;
+        this.VBO = vbo;
+        this.EBO = ebo;
 
         this.vertices = vertices;
         this.indices = indices;
 
         this.scale    = new Vector3f(1.f);
         this.position = new Vector3f(0.f);
-        setupMesh();
+
+        //setupMesh();
     }
 
 
@@ -132,6 +138,7 @@ public class Mesh {
     }
 
     void configureAttrib(){
+
         GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, 8 * Float.BYTES, 0);
         GL20.glVertexAttribPointer(1, 3, GL11.GL_FLOAT, false, 8 * Float.BYTES, 3 * Float.BYTES);
         GL20.glVertexAttribPointer(2, 2, GL11.GL_FLOAT, false, 8 * Float.BYTES, 6 * Float.BYTES); // Texture coordinates
