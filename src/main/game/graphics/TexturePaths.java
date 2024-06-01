@@ -1,3 +1,5 @@
+package main.game.graphics;
+
 public final class TexturePaths {
 
     private TexturePaths(){}

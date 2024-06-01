@@ -7,16 +7,19 @@ out vec3 fragPos;
 out vec3 vertexColor;
 out vec2 vertexTextureCoord;
 
-uniform vec2 offsets[4];
-uniform mat4 transform;
+uniform mat4 model;
+uniform mat4 view;
 
 void main()
 {
+    fragPos            = aPos;
     vertexColor        = aVertexColor;
     vertexTextureCoord = aVertexTextureCoord;
 
-    vec2 offset = offsets[gl_InstanceID];
+    vec3 position = aPos;
 
-    fragPos = (transform * vec4(aPos + vec3(offset, 0.0), 1.0)).xyz;
-    gl_Position = transform * vec4(aPos + vec3(offset, 0.0), 1.0);
+    position.x;
+
+    gl_Position = view * model *  vec4(position, 1.0);
+
 };

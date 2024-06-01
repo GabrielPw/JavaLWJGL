@@ -7,15 +7,14 @@ in vec3 vertexColor;
 in vec2 vertexTextureCoord;
 
 uniform float time;
-
-uniform sampler2D ourTexture;
+uniform sampler2D atlasTexture;
 
 void main()
 {
-
     vec2 st = gl_FragCoord.xy;
 
-    vec4 textureColor = texture(ourTexture, vertexTextureCoord);
+    vec3 color = fragPos;
+    color = vec3(1, 1, 1);
 
-    FragColor = vec4(textureColor);
+    FragColor = texture(atlasTexture, vertexTextureCoord) * vec4(color, 1);
 };
