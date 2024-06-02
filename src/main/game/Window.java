@@ -1,6 +1,8 @@
 package main.game;
 
+import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL;
+import org.lwjgl.opengl.GL30;
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
@@ -9,7 +11,13 @@ import static org.lwjgl.system.MemoryUtil.NULL;
 public class Window {
 
     private long ID;
+
+    private int width;
+    private int height;
     public Window(String title, int width, int height){
+
+        this.width  = width;
+        this.height = height;
 
         glfwInit();
         glfwWindowHint(GLFW_SAMPLES, 4);
@@ -33,13 +41,25 @@ public class Window {
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        // Set up a resize callback
-        glfwSetFramebufferSizeCallback(this.ID, (window, width_, height_) -> {
-            glViewport(0, 0, width_, height_);
-        });
+    }
+
+    public void updateProjectionMatrix(Matrix4f projection, int width, int height) {
+        float aspectRatio = (float) width / height;
+        float orthoHeight = 1.0f;
+        float orthoWidth = orthoHeight * aspectRatio;
+        projection.identity();
+        projection.ortho2D(-orthoWidth, orthoWidth, -orthoHeight, orthoHeight);
     }
 
     public long getID() {
         return ID;
+    }
+
+    public int getWidth() {
+        return width;
+    }
+
+    public int getHeight() {
+        return height;
     }
 }

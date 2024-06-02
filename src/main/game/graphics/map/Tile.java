@@ -12,12 +12,10 @@ import org.lwjgl.opengl.GL30;
 
 public class Tile {
 
-    private int textureID;
     private Matrix4f model;
     private Vector3f position;
     private Vertex[] vertices;
     private Vector3f scale;
-    private String texturePath;
     private int spriteIndex;
 
     public Tile(Vector3f position, int index){
@@ -31,7 +29,6 @@ public class Tile {
 
     public void update(Shader shader){
 
-
         this.model.identity();
         this.model.scale(this.scale);
         this.model.translate(this.position);
@@ -42,23 +39,22 @@ public class Tile {
         //GL30.glBindTexture(GL30.GL_TEXTURE_2D, this.textureID); // Ativa a textura correta
     }
 
-    private int loadTexture(){
-
-        return TextureLoader.loadTexture(this.texturePath, GL30.GL_TEXTURE0);
-    }
-
-
     public Vector2f[] calculateTextureCoordinates(int columns, int rows, int spriteWidth, int spriteHeight, int textureWidth, int textureHeight) {
         float spriteWidthNorm = (float) spriteWidth / textureWidth;
         float spriteHeightNorm = (float) spriteHeight / textureHeight;
 
+        // Offset to avoid atlas bleeding
+        float offset = 0.5f / textureWidth; // Half a pixel offset for X coordinates
+        float offsetY = 0.5f / textureHeight; // Half a pixel offset for Y coordinates
+
         int column = this.spriteIndex % columns;
         int row = this.spriteIndex / columns;
 
-        float xMin = column * spriteWidthNorm;
-        float xMax = xMin + spriteWidthNorm;
-        float yMin = row * spriteHeightNorm;
-        float yMax = yMin + spriteHeightNorm;
+        // Troquei o yMin com o YMax pois a textura estava invertida.
+        float xMin = column * spriteWidthNorm + offset;
+        float xMax = (column + 1) * spriteWidthNorm - offset;
+        float yMin = (row + 1) * spriteHeightNorm - offsetY; //
+        float yMax = row * spriteHeightNorm + offsetY;
 
         return new Vector2f[] {
                 new Vector2f(xMin, yMax),  // Top Left
@@ -66,16 +62,6 @@ public class Tile {
                 new Vector2f(xMax, yMin),  // Bottom Right
                 new Vector2f(xMax, yMax)   // Top Right
         };
-
-    }
-
-    public void destroy(){
-
-        GL30.glDeleteTextures(this.textureID);
-    }
-
-    public int getTextureID() {
-        return textureID;
     }
 
     public Matrix4f getModel() {
@@ -86,9 +72,6 @@ public class Tile {
         return position;
     }
 
-    public String getTexturePath() {
-        return texturePath;
-    }
 
     public void setPosition(Vector3f position) {
         this.position = position;

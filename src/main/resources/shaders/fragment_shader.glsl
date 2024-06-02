@@ -14,7 +14,7 @@ void main()
     vec2 st = gl_FragCoord.xy;
 
     vec3 color = fragPos;
-    color = vec3(1, 1, 1);
+    color = vec3(1);
 
     FragColor = texture(atlasTexture, vertexTextureCoord) * vec4(color, 1);
 };
