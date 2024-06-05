@@ -17,5 +17,4 @@ void main()
     vec3 position = vec3(aPos, 1.f);
 
     gl_Position = projection * view * model *  vec4(position, 1.0);
-
 };

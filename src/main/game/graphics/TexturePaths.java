@@ -14,6 +14,7 @@ public final class TexturePaths {
     public static final String textureTileGreen = "src/main/resources/assets/tile32/tilegreen.png";
 
     // Characters.
-    public static final String textureMokkoCharacter = "src/main/resources/assets/characters/original/mokko.png";
+    public static final String textureAtlasMokkoCharacter = "src/main/resources/assets/characters/original/mokko_walk/atlas_mokko_walk.png";
+    public static final String textureSpriteMokkoCharacter = "src/main/resources/assets/characters/original/mokko.png";
 
 }

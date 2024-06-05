@@ -35,9 +35,9 @@ public class GameMap {
     private int qntTiles;
 
     private final int spriteSize = 16;
-    private final int atlasQntCols = 10;
-    private final int atlasQntRows = 10;
-    private final int textureSize = 160;
+    private final int atlasQntCols = 20;
+    private final int atlasQntRows = 20;
+    private final int textureSize = 320;
 
 
     public GameMap(String atlasTexturePath, Shader shader){
@@ -58,6 +58,7 @@ public class GameMap {
         createBuffers();
 
         tiles.clear(); // free memory
+        tiles = null;
     }
 
     public void render(){
@@ -165,6 +166,10 @@ public class GameMap {
                 String[] values = line.split(" ");
                 qntColsOfTiles = values.length;
                 for (int x = 0; x < values.length; x++) {
+                    // Verifique se o valor é vazio ou não
+                    if (values[x].isEmpty() || values[x].equals("...")) {
+                        continue; // Pular espaços vazios
+                    }
                     int tileIndex = Integer.parseInt(values[x]);
                     Tile tile = new Tile(new Vector3f(x, -y, 0), tileIndex);
                     tiles.add(tile);

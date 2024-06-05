@@ -63,9 +63,22 @@ public class Shader {
 
 
     private void uniformErrorMessage(String uniformName){
-        System.err.println("Uniform " + uniformName + " not found in shader program.");
+        //System.err.println("Uniform " + uniformName + " not found in shader program.");
     }
 
+    public void addUniform2fv(String uniformName, Vector2f vector) {
+        int uniformLocation = GL20.glGetUniformLocation(ID, uniformName);
+        if (uniformLocation != -1) {
+
+            FloatBuffer buffer = BufferUtils.createFloatBuffer(2);
+            buffer.put(vector.x).put(vector.y);
+            buffer.flip();
+
+            GL20.glUniform2fv(uniformLocation, buffer);
+        } else {
+            System.err.println("Uniform " + uniformName + " not found in shader program.");
+        }
+    }
 
     public void addUniform2fvArray(String uniformName, Vector2f[] vectors) {
         int uniformLocation = GL20.glGetUniformLocation(ID, uniformName);

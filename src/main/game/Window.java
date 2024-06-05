@@ -1,8 +1,13 @@
 package main.game;
 
 import org.joml.Matrix4f;
+import org.lwjgl.glfw.GLFW;
+import org.lwjgl.glfw.GLFWScrollCallback;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL30;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
@@ -14,7 +19,13 @@ public class Window {
 
     private int width;
     private int height;
-    public Window(String title, int width, int height){
+    private float zoom;
+    private static final float MIN_ZOOM = 0.1f;
+    private static final float MAX_ZOOM = 5.0f;
+    private float scrollSpeed = 0.1f;
+    private Map<Integer, Boolean> keyState;
+    Matrix4f projection;
+    public Window(String title, int width, int height, Matrix4f projection){
 
         this.width  = width;
         this.height = height;
@@ -28,6 +39,7 @@ public class Window {
         glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
 
         this.ID = glfwCreateWindow(width,height,title, NULL , NULL);
+        this.projection = projection;
 
         if (this.ID == NULL)
         {
@@ -41,14 +53,46 @@ public class Window {
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+        // Configurar o callback de entrada
+        keyState = new HashMap<>();
+        org.lwjgl.glfw.GLFW.glfwSetKeyCallback(ID, (window, key, scancode, action, mods) -> {
+            if (action == GLFW.GLFW_PRESS) {
+                keyState.put(key, true);
+            } else if (action == GLFW.GLFW_RELEASE) {
+                keyState.put(key, false);
+            }
+        });
+
+        setupScrollCallback(ID);
+
     }
 
-    public void updateProjectionMatrix(Matrix4f projection, int width, int height) {
-        float aspectRatio = (float) width / height;
-        float orthoHeight = 1.0f;
+    public void setupScrollCallback(long window) {
+        glfwSetScrollCallback(window, (windowHandle, xOffset, yOffset) -> {
+            float sensitivity = 0.2f;
+            float newZoom = this.zoom + (float) yOffset * sensitivity;
+            setZoom(newZoom);
+        });
+    }
+
+    public boolean isKeyPressed(int key) {
+        return keyState.getOrDefault(key, false);
+    }
+
+
+    public void updateProjectionMatrix() {
+        float aspectRatio = (float) this.width / this.height;
+        float orthoHeight = 1.0f * zoom;
         float orthoWidth = orthoHeight * aspectRatio;
+        float centerX = orthoWidth / 2.0f;
+        float centerY = orthoHeight / 2.0f;
         projection.identity();
-        projection.ortho2D(-orthoWidth, orthoWidth, -orthoHeight, orthoHeight);
+        projection.ortho(-centerX, centerX, -centerY, centerY, -1.0f, 1.0f);
+    }
+
+    public void setZoom(float zoom) {
+        this.zoom = Math.max(MIN_ZOOM, Math.min(zoom, MAX_ZOOM));
+        updateProjectionMatrix();
     }
 
     public long getID() {
@@ -61,5 +105,19 @@ public class Window {
 
     public int getHeight() {
         return height;
+    }
+
+    public float getZoom() {
+        return zoom;
+    }
+
+
+
+    public void setWidth(int width) {
+        this.width = width;
+    }
+
+    public void setHeight(int height) {
+        this.height = height;
     }
 }
