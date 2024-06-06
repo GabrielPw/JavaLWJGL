@@ -20,11 +20,11 @@ public class Window {
     private int width;
     private int height;
     private float zoom;
-    private static final float MIN_ZOOM = 0.1f;
-    private static final float MAX_ZOOM = 5.0f;
+    private static final float MIN_ZOOM = 2.f;
+    private static final float MAX_ZOOM = 8.0f;
     private float scrollSpeed = 0.1f;
     private Map<Integer, Boolean> keyState;
-    Matrix4f projection;
+    private Matrix4f projection;
     public Window(String title, int width, int height, Matrix4f projection){
 
         this.width  = width;
@@ -111,7 +111,9 @@ public class Window {
         return zoom;
     }
 
-
+    public Matrix4f getProjection() {
+        return projection;
+    }
 
     public void setWidth(int width) {
         this.width = width;

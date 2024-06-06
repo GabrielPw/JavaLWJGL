@@ -60,4 +60,5 @@ public class Primitives {
             0, 1, 2, // First Triangle: Top Left, Bottom Left, Bottom Right
             2, 3, 0  // Second Triangle: Bottom Right, Top Right, Top Left
     };
+
 }

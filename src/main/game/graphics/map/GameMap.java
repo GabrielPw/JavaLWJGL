@@ -50,7 +50,7 @@ public class GameMap {
         this.model = new Matrix4f().identity();
         this.scale = 1.f;
 
-        this.atlasTexture = TextureLoader.loadTexture(atlasTexturePath, GL30.GL_TEXTURE0);
+        this.atlasTexture = TextureLoader.loadTexture(atlasTexturePath);
 
         //this.tiles = generateTiles();
         loadMapFromFile("src/main/resources/maps/map1.txt");

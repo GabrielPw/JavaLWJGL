@@ -39,7 +39,7 @@ public class Player {
         this.scale = new Vector2f(1.f, 1.f);
         this.isMoving = false;
 
-        this.texture = TextureLoader.loadTexture(texturePath, GL30.GL_TEXTURE0);
+        this.texture = TextureLoader.loadTexture(texturePath);
         createBuffers();
     }
     public void render(){
