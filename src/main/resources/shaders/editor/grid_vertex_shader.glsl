@@ -15,5 +15,5 @@ void main()
 
     vec3 position = vec3(aPos, 0.f);
 
-    gl_Position = model * view * vec4(position, 1.0);
+    gl_Position =  model * view * vec4(position, 1.0);
 };

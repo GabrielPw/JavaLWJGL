@@ -82,7 +82,8 @@ public class ImGuiLayer {
                     ImGui.image(atlasTexture, tileSize * zoomTiles[0], tileSize * zoomTiles[0], u1, v1, u2, v2);
 
                     if (ImGui.isItemHovered() && ImGui.isMouseClicked(0)) {
-                        System.out.println("Tile clicado na posição: (" + col + ", " + row + ")");
+                        //System.out.println("SIM?:" + ImGui.isItemHovered());
+                        //System.out.println("Tile clicado na posição: (" + col + ", " + row + ")");
 
                         isTileBeingSelected = true;
                         selectedTileCoordInAtlas.x = col;

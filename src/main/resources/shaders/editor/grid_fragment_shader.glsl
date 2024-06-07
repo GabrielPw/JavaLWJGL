@@ -7,7 +7,7 @@ in vec2 textureCoord;
 
 uniform bool hasTexture;
 uniform sampler2D textureAtlas;
-uniform vec2 actualSpriteOffset;
+uniform vec2 indexInAtlas;
 
 void main()
 {
@@ -18,17 +18,21 @@ void main()
     float spriteHeight = 16.0f;
 
     // Calcula as coordenadas de textura normalizadas para o sprite atual
+
     vec2 spriteSize = vec2(spriteWidth / atlasWidth, spriteHeight / atlasHeight);
-    vec2 vertexTextureCoordNorm = textureCoord * spriteSize + actualSpriteOffset * spriteSize;
+    vec2 vertexTextureCoordNorm = textureCoord * spriteSize + indexInAtlas * spriteSize;
 
     vertexTextureCoordNorm.x -= 0.001f; // evitar atlas bleeding.
-    vertexTextureCoordNorm.y += 0.001f; // evitar atlas bleeding.
+    vertexTextureCoordNorm.y -= 0.001f; // evitar atlas bleeding.
 
+    vec3 baseColor = vec3(1.f);
+
+    vec3 gridLineColor = vec3(1.f);
     // renderizando selected tile.
     if(hasTexture){
-        FragColor = texture(textureAtlas, textureCoord);
+        FragColor = texture(textureAtlas, vertexTextureCoordNorm) * vec4(baseColor, 1);
     } else {
         // renderizando cor da grid.
-        FragColor = vec4(vec3(1.f), 1.f);
+        FragColor = vec4(gridLineColor, 1.f);
     }
 };
