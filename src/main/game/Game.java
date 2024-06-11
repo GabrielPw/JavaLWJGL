@@ -61,7 +61,7 @@ public class Game {
             frameCount++;
 
             if (frameTimeAccumulator >= 1.0) { // Se passou um segundo
-                glfwSetWindowTitle(window.getID(), "OpenGL Game. Original - FPS[" + frameCount + "]");
+                glfwSetWindowTitle(window.getID(), "OpenGL Game. FPS[" + frameCount + "]");
                 frameCount = 0; // Resetar contagem de frames
                 frameTimeAccumulator = 0.0; // Resetar o acumulador
             }

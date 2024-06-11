@@ -45,7 +45,7 @@ public class ImGuiLayer {
         ImGui.getStyle().setColor(ImGuiCol.WindowBg, 0.1f, 0.1f, 0.1f, 1.0f);
     }
 
-    public void render(float deltaTime) {
+    public void render() {
         imGuiGlfw.newFrame();
         ImGui.newFrame();
 

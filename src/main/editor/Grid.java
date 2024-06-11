@@ -31,7 +31,7 @@ public class Grid {
         this.CELLSIZE = cellSize;
         this.model = new Matrix4f().identity();
 
-        this.shader = new Shader("editor/grid_vertex_shader.glsl", "editor/grid_fragment_shader.glsl");
+        this.shader = new Shader("editor/grid_vert.glsl", "editor/grid_frag.glsl");
         this.VAO = GL30.glGenVertexArrays();
         this.VBO = GL30.glGenBuffers();
 

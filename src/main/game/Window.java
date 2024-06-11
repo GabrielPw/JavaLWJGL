@@ -39,6 +39,7 @@ public class Window {
         glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
 
         this.ID = glfwCreateWindow(width,height,title, NULL , NULL);
+        this.zoom = 1.f;
         this.projection = projection;
 
         if (this.ID == NULL)

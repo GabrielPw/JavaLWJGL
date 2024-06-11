@@ -8,37 +8,38 @@ import main.game.graphics.Primitives;
 import main.game.graphics.TextureLoader;
 import main.game.graphics.TexturePaths;
 import main.game.graphics.Vertex;
-import org.joml.Matrix4f;
-import org.joml.Vector2f;
-import org.joml.Vector3f;
+import main.game.graphics.map.Tile;
+import org.joml.*;
 import org.lwjgl.BufferUtils;
-import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL30;
 
+import javax.print.attribute.standard.PrinterMessageFromOperator;
+import java.lang.Math;
 import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.glViewport;
 
 public class MapEditor {
 
-    private int VBO, VAO, EBO;
-    private int VBOSelectedTile;
+    private int VAO;
+    VBO VBOMap, VBOSelectedTile;
+    EBO EBOMap, EBOTileSelected;
+    private Shader shaderTileSelectedAndGrid;
+    private Shader shaderMap;
+    private final int QNT_ATLAS_COLS = 20;
+    private final int QNT_ATLAS_ROWS = 20;
 
-    private Shader shader;
     private final int MAP_MAXROWS = 40; // quantidade máxima de tiles que o mapa pode ter em linhas.
     private final int MAP_MAXCOLS = 40;
     private Window window;
     private ImGuiLayer imGuiLayer;
     private int textureAtlas;
-
-    private double previousTime;
-    private double frameTimeAccumulator;
-    private int frameCount;
     private Grid grid;
     private Matrix4f projection;
     private Matrix4f view;
@@ -46,17 +47,18 @@ public class MapEditor {
     Vector3f viewPos = new Vector3f(0.f, 0.f, 0.f);
     float viewSpeed = .2f;
     private Vector3f viewScale = new Vector3f(0.1f, 0.1f, 0.f);
-
-    private Vector3f selectedTilePos = new Vector3f(0.5f, 0.5f, 0);
     private Vector2f selectedTileIndex = new Vector2f(0, 0);
     private Matrix4f selectedTileView = new Matrix4f();
-
     private DoubleBuffer xBuffer = BufferUtils.createDoubleBuffer(1);
     private DoubleBuffer yBuffer = BufferUtils.createDoubleBuffer(1);
     Vector3f TILE_SIZE = new Vector3f(1.f, 1.f, 0.f);
     public MapEditor(String atlasPath){
 
-        view              = new Matrix4f().identity();
+        Vector3f cameraPos = new Vector3f(0.0f, 0.0f, 2.0f); // Posição da câmera
+        Vector3f cameraTarget = new Vector3f(0.0f, 0.0f, 0.0f); // Ponto de olhar
+        Vector3f up = new Vector3f(0.0f, 1.0f, 0.0f); // Vetor para cima
+
+        view = new Matrix4f().lookAt(cameraPos, cameraTarget, up);
         projection        = new Matrix4f().identity();
         selectedTileModel = new Matrix4f().identity();
 
@@ -68,15 +70,12 @@ public class MapEditor {
         imGuiLayer.init(window.getID()); // Inicializar ImGui
 
         this.VAO             = GL30.glGenVertexArrays();
-        this.VBO             = GL30.glGenBuffers();
-        this.EBO             = GL30.glGenBuffers();
-        this.VBOSelectedTile = GL30.glGenBuffers();
 
-        this.shader = new Shader("editor/grid_vertex_shader.glsl", "editor/grid_fragment_shader.glsl");
+        this.shaderTileSelectedAndGrid = new Shader("editor/grid_vert.glsl", "editor/grid_frag.glsl");
+        this.shaderMap                 = new Shader("editor/map_vert.glsl",  "editor/map_frag.glsl");
         this.grid = new Grid(MAP_MAXROWS, MAP_MAXCOLS, TILE_SIZE.x);
 
-        //window.setZoom(1.f);
-        //window.updateProjectionMatrix();
+        window.updateProjectionMatrix();
 
         glfwSetFramebufferSizeCallback(window.getID(), (windowID, w, h) -> {
             glViewport(0, 0, w, h);
@@ -85,37 +84,28 @@ public class MapEditor {
             window.updateProjectionMatrix();
         });
 
+        glfwSetMouseButtonCallback(window.getID(), (windowID, button, action, mods) -> {
+            if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS && imGuiLayer.isTileBeingSelected()) {
+                glfwGetCursorPos(window.getID(), xBuffer, yBuffer);
 
+                double mouseX = xBuffer.get(0);
+                double mouseY = yBuffer.get(0);
 
-        /*
-        glfwSetCursorPosCallback(window.getID(), (windowID, xpos, ypos) -> {
-            cursorPosCallback(windowID, xpos, ypos);
+                float mouseXNorm = (float) (mouseX / window.getWidth() - 0.5f) * 2;
+                float mouseYNorm = (float) -(mouseY / window.getHeight() - 0.5f) * 2;
+
+                addTiletoMap(new Vector2f(mouseXNorm, mouseYNorm));
+            }
         });
-        */
 
         createBuffers();
     }
 
     public void run(){
-
-        StringBuilder newTitle = new StringBuilder();
         while (!glfwWindowShouldClose(window.getID())){
 
             GL11.glClearColor((26.f / 255), (26.f / 255), (26.f / 255), 1.0f);
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT|GL11.GL_DEPTH_BUFFER_BIT);
-
-            double currentTime = glfwGetTime();
-            float deltaTime = (float) (currentTime - previousTime); // Calcular deltaTime
-            previousTime = currentTime; // Atualizar previousTime
-
-            frameTimeAccumulator += deltaTime; // Acumular o tempo decorrido
-            frameCount++;
-
-            if (frameTimeAccumulator >= 1.0) { // Se passou um segundo
-
-                frameCount = 0; // Resetar contagem de frames
-                frameTimeAccumulator = 0.0; // Resetar o acumulador
-            }
 
             window.updateProjectionMatrix();
             moveCamera();
@@ -127,6 +117,8 @@ public class MapEditor {
             grid.update(view);
             grid.render();
 
+            renderMap();
+
             //System.out.println(ImGui.isItemHovered()? "Sim" : "Não");
             if (imGuiLayer.isTileBeingSelected() && !ImGui.isItemHovered()){
 
@@ -136,7 +128,7 @@ public class MapEditor {
                 renderSelected(tileCol, tileRow);
             }
 
-            imGuiLayer.render(deltaTime);
+            imGuiLayer.render();
 
             glfwPollEvents();
             glfwSwapBuffers(window.getID());
@@ -154,8 +146,14 @@ public class MapEditor {
 
         GL30.glBindVertexArray(VAO);
 
-        FloatBuffer selectedTileVertices = BufferUtils.createFloatBuffer(Primitives.squareVertices.length * 4);
+        FloatBuffer verticesBuffer = BufferUtils.createFloatBuffer(Primitives.squareVertices.length * 4 * MAP_MAXROWS * MAP_MAXCOLS);
+        IntBuffer indicesBuffer = BufferUtils.createIntBuffer(Primitives.squareIndices.length * MAP_MAXROWS * MAP_MAXCOLS);
 
+        this.VBOMap = new VBO(verticesBuffer.capacity() * Float.BYTES, GL30.GL_DYNAMIC_DRAW);
+        this.EBOMap = new EBO(indicesBuffer.capacity() * Integer.BYTES, GL30.GL_DYNAMIC_DRAW);
+
+        // VBO TileSelected.
+        FloatBuffer selectedTileVertices = BufferUtils.createFloatBuffer(Primitives.squareVertices.length * 4);
         for (Vertex vertex : Primitives.squareVertices) {
 
             selectedTileVertices.put(vertex.position.x);
@@ -164,11 +162,9 @@ public class MapEditor {
         }
 
         selectedTileVertices.flip();
-        GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER, VBOSelectedTile);
-        GL30.glBufferData(GL15.GL_ARRAY_BUFFER, selectedTileVertices, GL15.GL_STATIC_DRAW);
 
-        GL30.glBindBuffer(GL30.GL_ELEMENT_ARRAY_BUFFER, EBO);
-        GL30.glBufferData(GL30.GL_ELEMENT_ARRAY_BUFFER, Primitives.squareIndices, GL30.GL_STATIC_DRAW);
+        this.VBOSelectedTile = new VBO(selectedTileVertices, GL15.GL_STATIC_DRAW);
+        this.EBOTileSelected = new EBO(Primitives.squareIndices, GL30.GL_STATIC_DRAW);
 
         GL30.glVertexAttribPointer(0, 2, GL11.GL_FLOAT, false, 4 * Float.BYTES, 0);
         GL30.glVertexAttribPointer(1, 2, GL11.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
@@ -200,28 +196,74 @@ public class MapEditor {
         selectedTileModel.identity();
         selectedTileView.identity();
 
-        System.out.println(mouseXNorm + " - " + mouseYNorm);
+        //System.out.println(mouseXNorm + " - " + mouseYNorm);
         selectedTileModel.translate(snappedX , snappedY, 0.f);
         selectedTileView.scale(viewScale);
 
         selectedTileIndex.x = colInAtlas;
         selectedTileIndex.y = rowInAtlas;
-        shader.use();
-        shader.addUniformMatrix4fv("model", selectedTileModel);
-        shader.addUniformMatrix4fv("view", selectedTileView);
-        shader.addUniform1i("hasTexture", 1);
-        shader.addUniform1f("textureAtlas", textureAtlas);
-        shader.addUniform2fv("indexInAtlas", selectedTileIndex);
+        shaderTileSelectedAndGrid.use();
+        shaderTileSelectedAndGrid.addUniformMatrix4fv("model", selectedTileModel);
+        shaderTileSelectedAndGrid.addUniformMatrix4fv("view", selectedTileView);
+        shaderTileSelectedAndGrid.addUniform1i("hasTexture", 1);
+        shaderTileSelectedAndGrid.addUniform1f("textureAtlas", textureAtlas);
+        shaderTileSelectedAndGrid.addUniform2fv("indexInAtlas", selectedTileIndex);
 
         GL30.glActiveTexture(GL30.GL_TEXTURE0);
         GL30.glBindTexture(GL30.GL_TEXTURE_2D, textureAtlas);
 
         GL30.glBindVertexArray(VAO);
-        GL30.glBindBuffer(GL30.GL_ARRAY_BUFFER,VBOSelectedTile);
-        GL30.glBindBuffer(GL30.GL_ELEMENT_ARRAY_BUFFER, EBO);
+        VBOSelectedTile.bind();
+        EBOTileSelected.bind();
 
         GL11.glDrawElements(GL11.GL_TRIANGLES, Primitives.squareIndices.length, GL11.GL_UNSIGNED_INT, 0);
         GL30.glBindVertexArray(0);
+    }
+
+    private void renderMap(){
+
+        GL30.glBindVertexArray(VAO);
+
+        view.identity();
+        shaderMap.use();
+        //shaderMap.addUniformMatrix4fv("model",new Matrix4f().identity());
+        shaderMap.addUniformMatrix4fv("view", view);
+        shaderMap.addUniform1f("textureAtlas", textureAtlas);
+
+        GL30.glActiveTexture(GL30.GL_TEXTURE0);
+        GL30.glBindTexture(GL30.GL_TEXTURE_2D, textureAtlas);
+
+        GL30.glBindVertexArray(VAO);
+        this.VBOMap.bind();
+        this.EBOMap.bind();
+
+        GL11.glDrawElements(GL11.GL_TRIANGLES, MAP_MAXROWS * MAP_MAXCOLS * Primitives.squareIndices.length, GL11.GL_UNSIGNED_INT, 0);
+
+    }
+    private void addTiletoMap(Vector2f cellPosition ){
+
+        FloatBuffer verticesBuffer = BufferUtils.createFloatBuffer(Primitives.squareVertices.length * 4);
+        for (Vertex vertice : Primitives.squareVertices) {
+            verticesBuffer.put(cellPosition.x);
+            verticesBuffer.put(cellPosition.y);
+            verticesBuffer.put(vertice.textureCoord.x);
+            verticesBuffer.put(vertice.textureCoord.y);
+        }
+        verticesBuffer.flip();
+
+        int tileIndex = 0;
+        VBOMap.bind();
+        VBOMap.subData(tileIndex * Primitives.squareVertices.length * 4 * Float.BYTES, verticesBuffer);
+
+        IntBuffer indicesBuffer = BufferUtils.createIntBuffer(Primitives.squareIndices.length);
+        int offset = tileIndex * Primitives.squareVertices.length;
+        for (int index : Primitives.squareIndices) {
+            indicesBuffer.put(index + offset);
+        }
+        indicesBuffer.flip();
+
+        EBOMap.bind();
+        EBOMap.subData(tileIndex * Primitives.squareIndices.length * Integer.BYTES ,indicesBuffer);
     }
 
     public void moveCamera(){
@@ -255,18 +297,13 @@ public class MapEditor {
             }
         }
     }
-    private void cursorPosCallback(long windowID, double xpos, double ypos) {
-        // Verifique se o ImGui está capturando o cursor
-        if (!ImGui.getIO().getWantCaptureMouse()) {
-            // Se o ImGui não estiver capturando o cursor, focar a janela principal
-            glfwFocusWindow(windowID);
-        }
-    }
 
 
     private void destroy(){
-        GL30.glDeleteBuffers(this.VBO);
-        GL30.glDeleteBuffers(this.EBO);
+        GL30.glDeleteBuffers(this.VBOMap.getID());
+        GL30.glDeleteBuffers(this.VBOSelectedTile.getID());
+        GL30.glDeleteBuffers(this.EBOMap.getID());
+        GL30.glDeleteBuffers(this.EBOTileSelected.getID());
         GL30.glDeleteVertexArrays(this.VAO);
 
         GL30.glDeleteTextures(this.textureAtlas);
