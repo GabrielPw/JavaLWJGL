@@ -16,7 +16,7 @@ public class VBO {
     }
 
     // construtor para caso inicie um VBO vazio.
-    public VBO(int bufferSize, int usage) {
+    public VBO(long bufferSize, int usage) {
 
         this.ID = GL30.glGenBuffers();
         GL30.glBindBuffer(GL15.GL_ARRAY_BUFFER, this.ID);

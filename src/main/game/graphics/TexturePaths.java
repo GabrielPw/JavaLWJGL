@@ -7,6 +7,7 @@ public final class TexturePaths {
     // Atlas and tiles.
     public static final String textureAtlas32v1  = "src/main/resources/assets/atlas/atlas1.png";
     public static final String textureAtlas16v1  = "src/main/resources/assets/atlas/atlas16v1.png";
+    public static final String textureAtlas32x32  = "src/main/resources/assets/atlas/atlas32x32.png";
     public static final String textureAtlas2  = "src/main/resources/assets/atlas/atlas2.png";
     public static final String textureGrass  = "src/main/resources/assets/grassblock.jpg";
     public static final String textureWooden = "src/main/resources/assets/wooden2.jpg";

@@ -11,71 +11,51 @@ import main.game.graphics.Vertex;
 import main.game.graphics.map.Tile;
 import org.joml.*;
 import org.lwjgl.BufferUtils;
-import org.lwjgl.opengl.GL;
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL15;
-import org.lwjgl.opengl.GL30;
+import org.lwjgl.opengl.*;
 
 import javax.print.attribute.standard.PrinterMessageFromOperator;
+import java.io.*;
 import java.lang.Math;
 import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.glViewport;
 
 public class MapEditor {
 
-    private int VAO;
-    VBO VBOMap, VBOSelectedTile;
-    EBO EBOMap, EBOTileSelected;
-    private Shader shaderTileSelectedAndGrid;
-    private Shader shaderMap;
-    private final int QNT_ATLAS_COLS = 20;
-    private final int QNT_ATLAS_ROWS = 20;
+    private DoubleBuffer mouseXBuffer, mouseYBuffer;
 
-    private final int MAP_MAXROWS = 40; // quantidade máxima de tiles que o mapa pode ter em linhas.
-    private final int MAP_MAXCOLS = 40;
+    private int VAO;
+    private VBO VBOMap;
+    private EBO EBOMap;
+    private Matrix4f projection, view;
     private Window window;
     private ImGuiLayer imGuiLayer;
-    private int textureAtlas;
     private Grid grid;
-    private Matrix4f projection;
-    private Matrix4f view;
-    private Matrix4f selectedTileModel;
-    Vector3f viewPos = new Vector3f(0.f, 0.f, 0.f);
-    float viewSpeed = .2f;
-    private Vector3f viewScale = new Vector3f(0.1f, 0.1f, 0.f);
-    private Vector2f selectedTileIndex = new Vector2f(0, 0);
-    private Matrix4f selectedTileView = new Matrix4f();
-    private DoubleBuffer xBuffer = BufferUtils.createDoubleBuffer(1);
-    private DoubleBuffer yBuffer = BufferUtils.createDoubleBuffer(1);
-    Vector3f TILE_SIZE = new Vector3f(1.f, 1.f, 0.f);
-    public MapEditor(String atlasPath){
+    private Shader mapShader;
 
-        Vector3f cameraPos = new Vector3f(0.0f, 0.0f, 2.0f); // Posição da câmera
-        Vector3f cameraTarget = new Vector3f(0.0f, 0.0f, 0.0f); // Ponto de olhar
-        Vector3f up = new Vector3f(0.0f, 1.0f, 0.0f); // Vetor para cima
+    private float winMaxZoom = 20.f;
+    private Vector3f viewPos = new Vector3f(0.f,0.f, 0.f);
+    private float viewScale = 1.f;
 
-        view = new Matrix4f().lookAt(cameraPos, cameraTarget, up);
-        projection        = new Matrix4f().identity();
-        selectedTileModel = new Matrix4f().identity();
+    HashMap<Vector2i, Integer> tileMap = new HashMap<>();
 
-        window = new Window("Editor", 640, 480, projection);
+    public MapEditor(String atlasPath, int atlasSize, int tileSize){
+        DoubleBuffer mouseXBuffer = BufferUtils.createDoubleBuffer(1);
+        DoubleBuffer mouseYBuffer = BufferUtils.createDoubleBuffer(1);
 
-        textureAtlas = TextureLoader.loadTexture(TexturePaths.textureAtlas16v1);
-
-        imGuiLayer = new ImGuiLayer(atlasPath);
-        imGuiLayer.init(window.getID()); // Inicializar ImGui
-
-        this.VAO             = GL30.glGenVertexArrays();
-
-        this.shaderTileSelectedAndGrid = new Shader("editor/grid_vert.glsl", "editor/grid_frag.glsl");
-        this.shaderMap                 = new Shader("editor/map_vert.glsl",  "editor/map_frag.glsl");
-        this.grid = new Grid(MAP_MAXROWS, MAP_MAXCOLS, TILE_SIZE.x);
-
-        window.updateProjectionMatrix();
+        projection  = new Matrix4f().identity();
+        view        = new Matrix4f().identity();
+        window      = new Window("Editor.", 640, 480, projection);
+        imGuiLayer  = new ImGuiLayer(atlasPath, atlasSize, tileSize);
+        grid        = new Grid(40, 40);
+        mapShader = new Shader("editor/tile_vert.glsl", "editor/tile_frag.glsl");
+        TextureAtlas textureAtlas = new TextureAtlas(atlasSize, atlasSize, tileSize, tileSize);
 
         glfwSetFramebufferSizeCallback(window.getID(), (windowID, w, h) -> {
             glViewport(0, 0, w, h);
@@ -83,22 +63,70 @@ public class MapEditor {
             window.setHeight(h);
             window.updateProjectionMatrix();
         });
-
         glfwSetMouseButtonCallback(window.getID(), (windowID, button, action, mods) -> {
             if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS && imGuiLayer.isTileBeingSelected()) {
-                glfwGetCursorPos(window.getID(), xBuffer, yBuffer);
 
-                double mouseX = xBuffer.get(0);
-                double mouseY = yBuffer.get(0);
+                glfwGetCursorPos(window.getID(), mouseXBuffer, mouseYBuffer);
 
-                float mouseXNorm = (float) (mouseX / window.getWidth() - 0.5f) * 2;
-                float mouseYNorm = (float) -(mouseY / window.getHeight() - 0.5f) * 2;
+                double mouseX = mouseXBuffer.get(0);
+                double mouseY = mouseYBuffer.get(0);
 
-                addTiletoMap(new Vector2f(mouseXNorm, mouseYNorm));
+                // Normalizar as coordenadas do mouse para o intervalo [-1, 1]
+                float x = (float) (2.0f * mouseX / window.getWidth() - 1.0f);
+                float y = (float) (1.0f - 2.0f * mouseY / window.getHeight());
+
+                // Criar um vetor com as coordenadas normalizadas
+                Vector4f mouseClipCoords = new Vector4f(x, y, -1.0f, 1.0f);
+
+                // Transformar as coordenadas do clip space para o eye space
+                Matrix4f projection = window.getProjection();
+                Vector4f mouseEyeCoords = projection.invert(new Matrix4f()).transform(mouseClipCoords);
+
+                // Definir o z e w para o espaço de eye space
+                mouseEyeCoords.z = -1.0f;
+                mouseEyeCoords.w = 0.0f;
+
+                // Inicializar a matriz de visualização
+                Matrix4f view = new Matrix4f().identity().translate(viewPos).scale(viewScale);
+
+                // Transformar as coordenadas do eye space para o world space
+                Vector4f mouseWorldCoords = view.invert(new Matrix4f()).transform(mouseEyeCoords);
+
+                // Considerar a posição da câmera ao pegar as coordenadas do mundo
+                float worldX = mouseWorldCoords.x + Math.abs(viewPos.x);
+                float worldY = mouseWorldCoords.y - viewPos.y;
+
+                int snappedX = (int) Math.floor(worldX);
+                int snappedY = (int) Math.floor(worldY + 1.f);
+
+                System.out.println("X: " + worldX + " | Y: " + worldY);
+                Vector2f tilePos = new Vector2f(snappedX, -snappedY);
+
+                boolean isClickInsideGridBounds = snappedX >= 0 && snappedX < grid.getNUMCOLS();
+
+                Vector2i tilePosInAtlas = imGuiLayer.getSelectedTileCoordInAtlas();
+                int tileCol = tilePosInAtlas.x;
+                int tileRow = tilePosInAtlas.y;
+                int tilesPerRow = imGuiLayer.getAtlasSize() / imGuiLayer.getTileSize();
+
+                int tileIndexInAtlas = tileRow * tilesPerRow + tileCol;
+                if (isClickInsideGridBounds) {
+                    System.out.println("Index: " + tileIndexInAtlas);
+                    addTileToBuffer(tilePos, tileIndexInAtlas, textureAtlas);
+                    tileMap.put(new Vector2i((int) tilePos.x, (int) tilePos.y), tileIndexInAtlas);
+                }
             }
+
         });
 
-        createBuffers();
+        imGuiLayer.init(window.getID());
+
+        VAO = GL30.glGenVertexArrays();
+        window.setMaxZoom(winMaxZoom);
+        window.setZoom(20.f);
+        window.updateProjectionMatrix();
+        createMapBuffers();
+        loadMapFromTxt(MapPaths.map1, textureAtlas);
     }
 
     public void run(){
@@ -108,32 +136,28 @@ public class MapEditor {
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT|GL11.GL_DEPTH_BUFFER_BIT);
 
             window.updateProjectionMatrix();
-            moveCamera();
 
             view.identity();
             view.translate(viewPos);
-            view.scale(viewScale);
+            //view.scale(viewScale);
 
-            grid.update(view);
-            grid.render();
+            moveCamera();
 
-            renderMap();
-
-            //System.out.println(ImGui.isItemHovered()? "Sim" : "Não");
-            if (imGuiLayer.isTileBeingSelected() && !ImGui.isItemHovered()){
-
-                int tileCol = imGuiLayer.getSelectedTileCoordInAtlas().x;
-                int tileRow = imGuiLayer.getSelectedTileCoordInAtlas().y;
-
-                renderSelected(tileCol, tileRow);
-            }
-
+            grid.render(view, window.getProjection());
+            renderMapTiles(window.getProjection());
             imGuiLayer.render();
+
+            if (imGuiLayer.isSaveMapRequested()) {
+                saveMapToTxt(MapPaths.map1);
+                imGuiLayer.resetSaveMapRequested();
+            }
 
             glfwPollEvents();
             glfwSwapBuffers(window.getID());
         }
 
+        grid.destroy();
+        GL30.glDeleteTextures(imGuiLayer.getAtlasTexture());
         destroy();
 
         GL.createCapabilities();
@@ -142,144 +166,142 @@ public class MapEditor {
         glfwTerminate();
     }
 
-    private void createBuffers(){
+    private void createMapBuffers(){
 
         GL30.glBindVertexArray(VAO);
 
-        FloatBuffer verticesBuffer = BufferUtils.createFloatBuffer(Primitives.squareVertices.length * 4 * MAP_MAXROWS * MAP_MAXCOLS);
-        IntBuffer indicesBuffer = BufferUtils.createIntBuffer(Primitives.squareIndices.length * MAP_MAXROWS * MAP_MAXCOLS);
+        int grid_qnt_cols = grid.getNUMCOLS();
+        int grid_qnt_rows = grid.getNUMROWS();
+        int numTiles = grid_qnt_cols * grid_qnt_rows;
 
-        this.VBOMap = new VBO(verticesBuffer.capacity() * Float.BYTES, GL30.GL_DYNAMIC_DRAW);
-        this.EBOMap = new EBO(indicesBuffer.capacity() * Integer.BYTES, GL30.GL_DYNAMIC_DRAW);
+        FloatBuffer verticesBuffer = BufferUtils.createFloatBuffer(Primitives.squareVertices.length * 4 * numTiles);
+        IntBuffer indicesBuffer = BufferUtils.createIntBuffer(Primitives.squareIndices.length * numTiles);
 
-        // VBO TileSelected.
-        FloatBuffer selectedTileVertices = BufferUtils.createFloatBuffer(Primitives.squareVertices.length * 4);
-        for (Vertex vertex : Primitives.squareVertices) {
-
-            selectedTileVertices.put(vertex.position.x);
-            selectedTileVertices.put(vertex.position.y);
-            selectedTileVertices.put(vertex.getTextureCoordAsFloatArray());
-        }
-
-        selectedTileVertices.flip();
-
-        this.VBOSelectedTile = new VBO(selectedTileVertices, GL15.GL_STATIC_DRAW);
-        this.EBOTileSelected = new EBO(Primitives.squareIndices, GL30.GL_STATIC_DRAW);
+        VBOMap = new VBO(verticesBuffer.capacity() * Float.BYTES, GL30.GL_DYNAMIC_DRAW);
+        EBOMap = new EBO(indicesBuffer.capacity() * Integer.BYTES, GL30.GL_DYNAMIC_DRAW);
 
         GL30.glVertexAttribPointer(0, 2, GL11.GL_FLOAT, false, 4 * Float.BYTES, 0);
-        GL30.glVertexAttribPointer(1, 2, GL11.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES);
-
+        GL30.glVertexAttribPointer(1, 2, GL11.GL_FLOAT, false, 4 * Float.BYTES, 2 * Float.BYTES); // corrigido o offset para 2 * Float.BYTES
         GL30.glEnableVertexAttribArray(0);
         GL30.glEnableVertexAttribArray(1);
 
-        selectedTileVertices.clear();
-    }
+        for (int i = 0; i < numTiles; i++) {
+            for (int index : Primitives.squareIndices) {
+                indicesBuffer.put(index + i * Primitives.squareVertices.length);
+            }
+        }
+        indicesBuffer.flip();
+        EBOMap.subData(0, indicesBuffer);
 
-    private void renderSelected(int colInAtlas, int rowInAtlas){
-
-        glfwGetCursorPos(window.getID(), xBuffer, yBuffer);
-        double mouseX = xBuffer.get(0);
-        double mouseY = yBuffer.get(0);
-        int windowWidth = window.getWidth();
-        int windowHeight = window.getHeight();
-
-        xBuffer.clear();
-        yBuffer.clear();
-
-        // Converter a posição do mouse para coordenadas normalizadas OpenGL
-        float mouseXNorm = ((float) mouseX - (float) windowWidth  / 2) / (windowWidth  / 2); // 0,0 da janela deslocar p/ 0,0 do openGL
-        float mouseYNorm = ((float) mouseY - (float) windowHeight / 2) / (windowHeight / 2);
-
-        float snappedX = (float) (((float) Math.floor(mouseXNorm / viewScale.x) * 0.1f) +  0.1 / 2);
-        float snappedY = (float) (((float) Math.floor(mouseYNorm / viewScale.y) * -0.1f) - 0.1 / 2);
-
-        selectedTileModel.identity();
-        selectedTileView.identity();
-
-        //System.out.println(mouseXNorm + " - " + mouseYNorm);
-        selectedTileModel.translate(snappedX , snappedY, 0.f);
-        selectedTileView.scale(viewScale);
-
-        selectedTileIndex.x = colInAtlas;
-        selectedTileIndex.y = rowInAtlas;
-        shaderTileSelectedAndGrid.use();
-        shaderTileSelectedAndGrid.addUniformMatrix4fv("model", selectedTileModel);
-        shaderTileSelectedAndGrid.addUniformMatrix4fv("view", selectedTileView);
-        shaderTileSelectedAndGrid.addUniform1i("hasTexture", 1);
-        shaderTileSelectedAndGrid.addUniform1f("textureAtlas", textureAtlas);
-        shaderTileSelectedAndGrid.addUniform2fv("indexInAtlas", selectedTileIndex);
-
-        GL30.glActiveTexture(GL30.GL_TEXTURE0);
-        GL30.glBindTexture(GL30.GL_TEXTURE_2D, textureAtlas);
-
-        GL30.glBindVertexArray(VAO);
-        VBOSelectedTile.bind();
-        EBOTileSelected.bind();
-
-        GL11.glDrawElements(GL11.GL_TRIANGLES, Primitives.squareIndices.length, GL11.GL_UNSIGNED_INT, 0);
         GL30.glBindVertexArray(0);
     }
 
-    private void renderMap(){
+    private void addTileToBuffer(Vector2f tilePos, int tileAtlasIndex, TextureAtlas textureAtlas){
 
-        GL30.glBindVertexArray(VAO);
+        FloatBuffer verticesBuffer = BufferUtils.createFloatBuffer(Primitives.squareVertices.length * 4); // 4 --> cada vértice tem (x, y, uv.x, uv.y)
 
-        view.identity();
-        shaderMap.use();
-        //shaderMap.addUniformMatrix4fv("model",new Matrix4f().identity());
-        shaderMap.addUniformMatrix4fv("view", view);
-        shaderMap.addUniform1f("textureAtlas", textureAtlas);
+        float halfTileSize = 0.5f; // adjust tile in grid cell
+        Vector2f[] texCoords = textureAtlas.getTextureCoordinates(tileAtlasIndex);
 
-        GL30.glActiveTexture(GL30.GL_TEXTURE0);
-        GL30.glBindTexture(GL30.GL_TEXTURE_2D, textureAtlas);
-
-        GL30.glBindVertexArray(VAO);
-        this.VBOMap.bind();
-        this.EBOMap.bind();
-
-        GL11.glDrawElements(GL11.GL_TRIANGLES, MAP_MAXROWS * MAP_MAXCOLS * Primitives.squareIndices.length, GL11.GL_UNSIGNED_INT, 0);
-
-    }
-    private void addTiletoMap(Vector2f cellPosition ){
-
-        FloatBuffer verticesBuffer = BufferUtils.createFloatBuffer(Primitives.squareVertices.length * 4);
-        for (Vertex vertice : Primitives.squareVertices) {
-            verticesBuffer.put(cellPosition.x);
-            verticesBuffer.put(cellPosition.y);
-            verticesBuffer.put(vertice.textureCoord.x);
-            verticesBuffer.put(vertice.textureCoord.y);
+        for (int i = 0; i < Primitives.squareVertices.length; i++) {
+            Vertex squareVertex = Primitives.squareVertices[i];
+            verticesBuffer.put(squareVertex.position.x + tilePos.x + halfTileSize);
+            verticesBuffer.put(squareVertex.position.y - tilePos.y - halfTileSize);
+            verticesBuffer.put(texCoords[i].x); // Corrigido para usar as coordenadas de textura corretas
+            verticesBuffer.put(texCoords[i].y); // Corrigido para usar as coordenadas de textura corretas
         }
+
         verticesBuffer.flip();
 
-        int tileIndex = 0;
+        int tileIndex = (int) (tilePos.y * grid.getNUMCOLS() + tilePos.x);
+        int vertexStartIndex = tileIndex * Primitives.squareVertices.length * 4 * Float.BYTES;
+
+        VBOMap.subData(vertexStartIndex, verticesBuffer);
+
+        GL30.glBindVertexArray(0);
+    }
+    private void renderMapTiles(Matrix4f projection){
+
+        int atlasTexture = imGuiLayer.getAtlasTexture();
+        GL30.glActiveTexture(GL13.GL_TEXTURE0);
+        GL30.glBindTexture(GL11.GL_TEXTURE_2D, atlasTexture);
+
+        mapShader.use();
+        mapShader.addUniformMatrix4fv("view", view);
+        mapShader.addUniformMatrix4fv("projection", projection);
+        mapShader.addUniform1i("textureAtlas", 0); // Use texture unit 0
+
+        GL30.glBindVertexArray(VAO);
         VBOMap.bind();
-        VBOMap.subData(tileIndex * Primitives.squareVertices.length * 4 * Float.BYTES, verticesBuffer);
-
-        IntBuffer indicesBuffer = BufferUtils.createIntBuffer(Primitives.squareIndices.length);
-        int offset = tileIndex * Primitives.squareVertices.length;
-        for (int index : Primitives.squareIndices) {
-            indicesBuffer.put(index + offset);
-        }
-        indicesBuffer.flip();
-
         EBOMap.bind();
-        EBOMap.subData(tileIndex * Primitives.squareIndices.length * Integer.BYTES ,indicesBuffer);
+
+        int numTiles = grid.getNUMCOLS() * grid.getNUMROWS();
+        GL11.glDrawElements(GL11.GL_TRIANGLES, numTiles * Primitives.squareIndices.length, GL11.GL_UNSIGNED_INT, 0);
+    }
+
+    // reading text file.
+    private void loadMapFromTxt(String txtPath, TextureAtlas textureAtlas) {
+        try (BufferedReader br = new BufferedReader(new FileReader(txtPath))) {
+            String line;
+            int y = 0;
+            while ((line = br.readLine()) != null) {
+                String[] values = line.split(" ");
+                for (int x = 0; x < values.length; x++) {
+                    // Verifique se o valor é vazio ou não
+                    if (values[x].isEmpty() || values[x].equals("...")) {
+                        continue; // Pular espaços vazios
+                    }
+                    int tileIndex = Integer.parseInt(values[x]);
+                    Vector2f tilePos = new Vector2f(x, y);
+                    addTileToBuffer(tilePos, tileIndex, textureAtlas);
+                }
+                y++;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+    private void saveMapToTxt(String filePath) {
+
+        // get Bigger x, y.
+        Vector2i maxComponents = Collections.max(tileMap.entrySet(), Map.Entry.comparingByValue()).getKey();
+        maxComponents.x+=1;
+        maxComponents.y+=1;
+        System.out.println("Max-value: " + maxComponents.x + " , " + maxComponents.y);
+
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath))) {
+            for (int y = 0; y < maxComponents.y; y++) {
+                for (int x = 0; x < Math.abs(maxComponents.x); x++) {
+                    Vector2i pos = new Vector2i(x, y);
+                    if (tileMap.containsKey(pos)) {
+                        int tileIndex = tileMap.get(pos);
+                        writer.write(String.format("%03d ", tileIndex));
+                    } else {
+                        writer.write("... ");
+                    }
+                }
+                writer.newLine();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public void moveCamera(){
 
+        float viewSpeed = 0.2f;
         if (window.isKeyPressed(GLFW_KEY_D)){
             System.out.println("X: " + viewPos.x);
             float margin = 0.3f;
             viewPos.x -= viewSpeed;
-            if ( viewPos.x <= -(MAP_MAXCOLS * 0.1f)){
-                viewPos.x = -(MAP_MAXCOLS * 0.1f);
+            if ( viewPos.x <= -(grid.getNUMCOLS())){
+                viewPos.x = -(grid.getNUMCOLS());
             }
         }
         if (window.isKeyPressed(GLFW_KEY_A)) {
             viewPos.x += viewSpeed;
-            if ( viewPos.x >= 0.4f){
-                viewPos.x = 0.4f;
+            if ( viewPos.x >= 0.0f){
+                viewPos.x = 0.0f;
             }
         }
         if (window.isKeyPressed(GLFW_KEY_W)){
@@ -292,20 +314,19 @@ public class MapEditor {
         if(window.isKeyPressed(GLFW_KEY_S)) {
             float margin = .4f;
             viewPos.y += viewSpeed;
-            if ( viewPos.y >= MAP_MAXROWS * 0.1f + margin){
-                viewPos.y = MAP_MAXROWS * 0.1f + margin;
+            if ( viewPos.y >= grid.getNUMROWS()){
+                viewPos.y = grid.getNUMROWS();
             }
         }
+
     }
-
-
     private void destroy(){
         GL30.glDeleteBuffers(this.VBOMap.getID());
-        GL30.glDeleteBuffers(this.VBOSelectedTile.getID());
+        //GL30.glDeleteBuffers(this.VBOSelectedTile.getID());
         GL30.glDeleteBuffers(this.EBOMap.getID());
-        GL30.glDeleteBuffers(this.EBOTileSelected.getID());
+        //GL30.glDeleteBuffers(this.EBOTileSelected.getID());
         GL30.glDeleteVertexArrays(this.VAO);
 
-        GL30.glDeleteTextures(this.textureAtlas);
+        //GL30.glDeleteTextures(this.textureAtlas);
     }
 }

@@ -2,9 +2,7 @@ package main.game;
 
 import org.joml.Matrix4f;
 import org.lwjgl.glfw.GLFW;
-import org.lwjgl.glfw.GLFWScrollCallback;
 import org.lwjgl.opengl.GL;
-import org.lwjgl.opengl.GL30;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -20,8 +18,8 @@ public class Window {
     private int width;
     private int height;
     private float zoom;
-    private static final float MIN_ZOOM = 2.f;
-    private static final float MAX_ZOOM = 8.0f;
+    private float min_zoom = 2.f;
+    private float max_zoom = 8.0f;
     private float scrollSpeed = 0.1f;
     private Map<Integer, Boolean> keyState;
     private Matrix4f projection;
@@ -92,7 +90,7 @@ public class Window {
     }
 
     public void setZoom(float zoom) {
-        this.zoom = Math.max(MIN_ZOOM, Math.min(zoom, MAX_ZOOM));
+        this.zoom = Math.max(min_zoom, Math.min(zoom, max_zoom));
         updateProjectionMatrix();
     }
 
@@ -122,5 +120,12 @@ public class Window {
 
     public void setHeight(int height) {
         this.height = height;
+    }
+    public void setMaxZoom(float max_zoom){
+        this.max_zoom = max_zoom;
+    }
+
+    public void setMin_zoom(float min_zoom) {
+        this.min_zoom = min_zoom;
     }
 }

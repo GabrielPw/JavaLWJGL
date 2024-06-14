@@ -1,5 +1,6 @@
 package main.game.graphics.map;
 
+import main.editor.MapPaths;
 import main.game.Shader;
 import main.game.graphics.Primitives;
 import main.game.graphics.TextureLoader;
@@ -53,7 +54,7 @@ public class GameMap {
         this.atlasTexture = TextureLoader.loadTexture(atlasTexturePath);
 
         //this.tiles = generateTiles();
-        loadMapFromFile("src/main/resources/maps/map1.txt");
+        loadMapFromFile(MapPaths.map1);
         this.qntTiles = this.tiles.size();
         createBuffers();
 

@@ -6,6 +6,7 @@ import imgui.ImVec2;
 import imgui.flag.ImGuiCol;
 import imgui.flag.ImGuiCond;
 import imgui.flag.ImGuiConfigFlags;
+import imgui.flag.ImGuiWindowFlags;
 import imgui.gl3.ImGuiImplGl3;
 import imgui.glfw.ImGuiImplGlfw;
 import main.game.graphics.TextureLoader;
@@ -15,8 +16,11 @@ import org.lwjgl.glfw.GLFW;
 
 public class ImGuiLayer {
 
+    private int atlasSize, tileSize;
+
     private int atlasTexture;
     private boolean isTileBeingSelected = false;
+    private boolean saveMapRequested = false;
     private Vector2i selectedTileCoordInAtlas = new Vector2i(0, 0); // tile index in atlas.
     private final ImGuiImplGlfw imGuiGlfw = new ImGuiImplGlfw();
     private final ImGuiImplGl3 imGuiGl3 = new ImGuiImplGl3();
@@ -24,9 +28,11 @@ public class ImGuiLayer {
     private float[] btnColorRed = {0.5f, 0.2f, .2f, 1.f};
     private float[] zoomTiles = {2.f};
 
-    public ImGuiLayer(String atlasPath){
+    public ImGuiLayer(String atlasPath, int atlasSize, int tileSize){
 
         this.atlasTexture = TextureLoader.loadTexture(atlasPath);
+        this.atlasSize = atlasSize;
+        this.tileSize = tileSize;
     }
 
     public void init(long windowID) {
@@ -49,11 +55,8 @@ public class ImGuiLayer {
         imGuiGlfw.newFrame();
         ImGui.newFrame();
 
-        int tileSize = 16;
-        int atlasWidth = 320; // Largura da sua imagem atlas
-        int atlasHeight = 320; // Altura da sua imagem atlas
-        int tilesPerRow = atlasWidth / tileSize;
-        int tilesPerColumn = atlasHeight / tileSize;
+        int tilesPerRow = atlasSize / tileSize;
+        int tilesPerColumn = atlasSize / tileSize;
 
         float winPosX   = ImGui.getWindowPosX();
         float winPosY   = ImGui.getWindowPosY();
@@ -69,14 +72,14 @@ public class ImGuiLayer {
 
         ImGui.sliderFloat("Zoom Factor", zoomTiles, 0.5f, 5.0f);
         // Seção de Tiles
-        if (ImGui.beginChild("TilesSection", mainContainerWidth, mainContainerHeight, true)) {
+        if (ImGui.beginChild("TilesSection", mainContainerWidth, mainContainerHeight, true, ImGuiWindowFlags.HorizontalScrollbar)) {
             for (int row = 0; row < tilesPerColumn; row++) {
                 for (int col = 0; col < tilesPerRow; col++) {
                     // Calcular coordenadas de textura
-                    float u1 = (float) col * tileSize / atlasWidth;
-                    float v1 = (float) row * tileSize / atlasHeight;
-                    float u2 = u1 + (float) tileSize / atlasWidth;
-                    float v2 = v1 + (float) tileSize / atlasHeight;
+                    float u1 = (float) col * tileSize / atlasSize;
+                    float v1 = (float) row * tileSize / atlasSize;
+                    float u2 = u1 + (float) tileSize / atlasSize;
+                    float v2 = v1 + (float) tileSize / atlasSize;
 
                     // Exibir tile com zoom
                     ImGui.image(atlasTexture, tileSize * zoomTiles[0], tileSize * zoomTiles[0], u1, v1, u2, v2);
@@ -105,7 +108,9 @@ public class ImGuiLayer {
             int colorRed = rgbaToInt(btnColorRed);
 
             ImGui.pushStyleColor(ImGuiCol.Button, colorBlue);
-            ImGui.button("Save map");
+            if (ImGui.button("Save map")) {
+                saveMapRequested = true;
+            }
             ImGui.popStyleColor();
 
             ImGui.pushStyleColor(ImGuiCol.Button, colorRed);
@@ -149,5 +154,25 @@ public class ImGuiLayer {
 
     public Vector2i getSelectedTileCoordInAtlas() {
         return selectedTileCoordInAtlas;
+    }
+
+    public int getAtlasTexture() {
+        return atlasTexture;
+    }
+
+    public int getAtlasSize() {
+        return atlasSize;
+    }
+
+    public int getTileSize() {
+        return tileSize;
+    }
+
+    public boolean isSaveMapRequested() {
+        return saveMapRequested;
+    }
+
+    public void resetSaveMapRequested() {
+        saveMapRequested = false;
     }
 }

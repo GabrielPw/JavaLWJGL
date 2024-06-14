@@ -1,38 +1,11 @@
 #version 330 core
 
 out vec4 FragColor;
+in vec2 pos;
 
-in vec2 fragPos;
-in vec2 textureCoord;
+void main() {
 
-uniform bool hasTexture;
-uniform sampler2D textureAtlas;
-uniform vec2 indexInAtlas;
+    vec3 color = vec3(1.f, 1.f, 1.f);
 
-void main()
-{
-    // Dimensões do atlas e do sprite
-    float atlasWidth = 320.0f;
-    float atlasHeight = 320.0f;
-    float spriteWidth = 16.0f;
-    float spriteHeight = 16.0f;
-
-    // Calcula as coordenadas de textura normalizadas para o sprite atual
-
-    vec2 spriteSize = vec2(spriteWidth / atlasWidth, spriteHeight / atlasHeight);
-    vec2 vertexTextureCoordNorm = textureCoord * spriteSize + indexInAtlas * spriteSize;
-
-    vertexTextureCoordNorm.x -= 0.001f; // evitar atlas bleeding.
-    vertexTextureCoordNorm.y -= 0.001f; // evitar atlas bleeding.
-
-    vec3 baseColor = vec3(1.f);
-
-    vec3 gridLineColor = vec3(1.f);
-    // renderizando selected tile.
-    if(hasTexture){
-        FragColor = texture(textureAtlas, vertexTextureCoordNorm) * vec4(baseColor, 1);
-    } else {
-        // renderizando cor da grid.
-        FragColor = vec4(gridLineColor, 1.f);
-    }
-};
+    FragColor = vec4(color, 1.f);
+}
